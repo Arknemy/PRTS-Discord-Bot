@@ -149,6 +149,12 @@ async def op_file(ctx, *, arg):
 
 	else:
 		arg = arg.split()
+
+		if len(arg) == 3:
+			arg[0] = arg[0] + ' ' + arg[1]
+			arg[1] = arg[2]
+			del arg[2]
+
 		arg = load_archives(arg)
 
 		if len(arg) != 2:
@@ -182,6 +188,7 @@ async def lines(ctx, *, arg):
 	else:
 		await ctx.send(embed = embedVar, delete_after = 15)
 
+
 @bot.command()
 async def search(ctx, *, arg):
 	stay = False
@@ -190,28 +197,111 @@ async def search(ctx, *, arg):
 		arg = arg.replace(' %stay', '')
 		stay = True
 
-	matches = load_story(arg)
-	search_string = str(matches).strip('[]')
-	search_string = search_string.replace('\', \'', '\n\n')
-	search_string = search_string.replace('\', \"', '\n\n')
-	search_string = search_string.replace('\", \'', '\n\n')
-	search_string = search_string.replace('\", \"', '\n\n')
-	search_string = search_string[:0] + search_string[1:]
-	search_string = search_string[:len(search_string) - 1] + search_string[len(search_string):]
+	if arg.startswith('%operator '):
+		arg = arg.replace('%operator ', '')
+		arg = arg.split()
 
-	if len(matches) == 1:
-		embedVar = discord.Embed(title = 'Matching line:', description = search_string, color = 0xe3e3e3)
+		if len(arg) == 3:
+			if arg[1] in ['corne', 'red', '3', '2', 'poison', 'fu']:
+				arg[0] = arg[0] + ' ' + arg[1]
+				arg[1] = arg[2]
+				del arg[2]
 
-	elif len(matches) == 0:
-		embedVar = discord.Embed(title = 'File or keyword not found.', description = search_string, color = 0xe3e3e3)
+		elif len(arg) > 2:
+			embedVar = discord.Embed(title = 'Please enter only one keyword.', color = 0xe3e3e3)
+			await ctx.send(embed = embedVar, delete_after = 15)
+			return
 
-	else:	
-		embedVar = discord.Embed(title = 'Matching lines:', description = search_string, color = 0xe3e3e3)
-		
-	if stay == True:
-		await ctx.send(embed = embedVar)
-	else:
+		temp = arg[1]
+		op_search = load_archives(arg)
+		op_search[1] = temp
+		has_data = False
+		title = 0
+
+		if op_search[0] == 'None':
+			embedVar = discord.Embed(title = 'Operator not found.', color = 0xe3e3e3)
+			await ctx.send(embed = embedVar, delete_after = 15)
+			return
+
+		for i in table['handbookDict'][op_search[0]]['storyTextAudio']:
+			story_string = i['stories'][0]['storyText']
+			split_story = story_string.split()
+
+			for j in split_story:
+				if op_search[1].lower() in j.lower():
+					has_data = True
+
+					if len(story_string) > 2000:
+						nlines = story_string.count('\n')
+						nlines /= 2
+						nlines += 1
+						index = 0
+
+						for newline in story_string:
+							if newline == '\n':
+								nlines -= 1
+
+							index += 1
+
+							if nlines == 0:
+								part_1, part_2 = story_string[:index], story_string[index:]
+								embedVar_1 = discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = part_1, color = 0xe3e3e3)
+								embedVar_2 = discord.Embed(description = part_2, color = 0xe3e3e3)
+
+								if stay == True:
+									await ctx.send(embed = embedVar_1)
+									await ctx.send(embed = embedVar_2)
+
+								else:
+									await ctx.send(embed = embedVar_1, delete_after = 15)
+									await ctx.send(embed = embedVar_2, delete_after = 15)
+
+								return
+
+					else:
+						embedVar = discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = story_string, color = 0xe3e3e3)
+
+						if stay == True:
+							await ctx.send(embed = embedVar)
+
+						else:
+							await ctx.send(embed = embedVar, delete_after = 15)
+
+					break
+
+			title += 1
+
+		if has_data == True:
+			return
+
+		embedVar = discord.Embed(title = 'Keyword not found.', color = 0xe3e3e3)
 		await ctx.send(embed = embedVar, delete_after = 15)
+		return				
+
+	else:
+		matches = load_story(arg)
+		search_string = str(matches).strip('[]')
+		search_string = search_string.replace('\', \'', '\n\n')
+		search_string = search_string.replace('\', \"', '\n\n')
+		search_string = search_string.replace('\", \'', '\n\n')
+		search_string = search_string.replace('\", \"', '\n\n')
+		search_string = search_string[:0] + search_string[1:]
+		search_string = search_string[:len(search_string) - 1] + search_string[len(search_string):]
+
+		if len(matches) == 1:
+			embedVar = discord.Embed(title = 'Matching line:', description = search_string, color = 0xe3e3e3)
+
+		elif len(matches) == 0:
+			embedVar = discord.Embed(title = 'File or keyword not found.', color = 0xe3e3e3)
+
+		else:	
+			embedVar = discord.Embed(title = 'Matching lines:', description = search_string, color = 0xe3e3e3)
+			
+		if stay == True:
+			await ctx.send(embed = embedVar)
+
+		else:
+			await ctx.send(embed = embedVar, delete_after = 15)
 
 
 @bot.command(name = 'add', pass_context = True)
@@ -357,4 +447,10 @@ async def on_message(ctx):
 		else:
 			return
 
+print('\n\nOnline.')
 bot.run(os.getenv('TOKEN'))
+
+# cd C:\Users\pop22\OneDrive\Desktop\PRTS
+# git add .
+# git commit -am "update"
+# git push heroku master
