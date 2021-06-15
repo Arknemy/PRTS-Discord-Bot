@@ -7,6 +7,7 @@ import json
 import asyncio
 import DiscordUtils
 
+from keep_alive import keep_alive
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
@@ -524,6 +525,7 @@ async def on_message(ctx):
 #————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 print('\n\nOnline.')
+keep_alive()
 bot.run(os.getenv('TOKEN'))
 
 # cd C:\Users\pop22\OneDrive\Desktop\PRTS
