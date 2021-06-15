@@ -130,9 +130,13 @@ def load_story(arg):
 		search_key = search_key.replace('mn ', '')
 		worksheet = sheet.get_worksheet(MN)
 
-	else:
+	elif arg.startswith('list'):
 		matches = list()
 		return matches
+
+	else:
+		arg = 'None'
+		return arg
 
 	search_list = worksheet.col_values(2)
 	matches = list()
@@ -250,6 +254,10 @@ def count_lines(arg):
 	
 	elif arg.startswith('mn'):
 		worksheet = sheet.get_worksheet(MN)
+
+	else:
+		arg = 'None'
+		return arg
 
 	search_list = worksheet.col_values(2)
 	return len(search_list)

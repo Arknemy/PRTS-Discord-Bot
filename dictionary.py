@@ -191,13 +191,14 @@ def lookup1(arg):
 def lookup2(arg):
 	archives = {
 		'basic': '0',
-		'clinical': '1',
+		'physical': '1',
 		'profile': '2',
-		'archive1': '3',
-		'archive2': '4',
-		'archive3': '5',
-		'archive4': '6',
-		'promotion': '7',
+		'clinical': '3',
+		'archive1': '4',
+		'archive2': '5',
+		'archive3': '6',
+		'archive4': '7',
+		'promotion': '8',
 	}
 
 	if archives.get(arg) == None:

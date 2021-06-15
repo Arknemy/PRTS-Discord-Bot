@@ -4,6 +4,8 @@ import random
 import gspread
 import string
 import json
+import asyncio
+import DiscordUtils
 
 from googleapiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
@@ -12,7 +14,6 @@ from discord.ext import commands
 from fuzzywuzzy import process
 from dotenv import load_dotenv
 
-from keep_alive import keep_alive
 from transcripts import load_story
 from transcripts import count_lines
 from operators import load_archives
@@ -39,8 +40,8 @@ with open('json_files/operator_table.json', encoding="utf8") as f:
 	table = json.load(f)
 
 
-#————————————————————————————————————————————————————————————————
-#————————————————————————————————————————————————————————————————
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 
 bot = commands.Bot(command_prefix = '%')
@@ -49,7 +50,10 @@ bot = commands.Bot(command_prefix = '%')
 @bot.command()
 async def test(ctx, *, arg):
     await ctx.send(arg)
+    await asyncio.sleep(3)
+    await ctx.channel.purge(limit = 2)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command(name = 'commands')
 async def commands_list(ctx, *, arg = 'None'):
@@ -61,9 +65,11 @@ async def commands_list(ctx, *, arg = 'None'):
 
 	if arg == '%stay':
 		await ctx.send(embed = embedVar)
+
 	else:
 		await ctx.send(embed = embedVar, delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command()
 async def doc(ctx, *, arg):
@@ -92,8 +98,10 @@ async def doc(ctx, *, arg):
 			await ctx.send('<{}>'.format(answer[2]), delete_after = 15)
 
 	else:
-		await ctx.send('Document not found.', delete_after = 15)
+		embedVar = discord.Embed(title = 'Document not found.', description = 'Use `%doc list` for a list of all documents.', color = 0xe3e3e3)
+		await ctx.send(embed = embedVar, delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command(name = 'q')
 async def questions(ctx, *, arg):
@@ -120,16 +128,19 @@ async def questions(ctx, *, arg):
 
 	if highest_match[0] in questions_list and highest_match[1] >= 80 and in_list == len(question_keywords):
 		answer = worksheet.row_values(worksheet.find(highest_match[0]).row)
-
+		embedVar = discord.Embed(description = answer[2], color = 0xe3e3e3)
+		
 		if stay == True:
-			await ctx.send(answer[2])
+			await ctx.send(embed = embedVar)
 
 		else:
-			await ctx.send(answer[2], delete_after = 15)
-			
-	else:
-		await ctx.send('Question not found.', delete_after = 15)
+			await ctx.send(embed = embedVar, delete_after = 15)
 
+	else:
+		embedVar = discord.Embed(title = 'Question not found.', description = 'Please be more specific.', color = 0xe3e3e3)
+		await ctx.send(embed = embedVar, delete_after = 15)
+
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command(name = 'operator')
 async def op_file(ctx, *, arg):
@@ -151,27 +162,70 @@ async def op_file(ctx, *, arg):
 		arg = arg.split()
 
 		if len(arg) == 3:
-			arg[0] = arg[0] + ' ' + arg[1]
-			arg[1] = arg[2]
-			del arg[2]
+			if arg[1] in ['corne', 'red', '3', '2', 'poison', 'fu']:
+				arg[0] = arg[0] + ' ' + arg[1]
+				arg[1] = arg[2]
+				del arg[2]
 
 		arg = load_archives(arg)
 
-		if len(arg) != 2:
-			await ctx.send('Query not found.', delete_after = 15)
+		if arg[0] == 'None':
+			embedVar = discord.Embed(title = 'Operator not found.', color = 0xe3e3e3)
+			await ctx.send(embed = embedVar, delete_after = 15)
+
+		elif arg[1] == 'None':
+			embedVar = discord.Embed(title = 'Archive not found.', color = 0xe3e3e3)
+			await ctx.send(embed = embedVar, delete_after = 15)
+
+		elif len(arg) != 2:
+			embedVar = discord.Embed(title = 'Archive not found.', color = 0xe3e3e3)
+			await ctx.send(embed = embedVar, delete_after = 15)
 
 		else:
-			if arg[0] == 'None' or arg[1] == 'None':
-				await ctx.send('Query not found.', delete_after = 15)
+			try:
+				table['handbookDict'][arg[0]]['storyTextAudio'][int(arg[1])]['storyTitle']
+			except IndexError:
+				embedVar = discord.Embed(title = 'Archive not found.', color = 0xe3e3e3)
+				await ctx.send(embed = embedVar, delete_after = 15)
+				return
+
+			story_title = table['handbookDict'][arg[0]]['storyTextAudio'][int(arg[1])]['storyTitle']
+			story_string = table['handbookDict'][arg[0]]['storyTextAudio'][int(arg[1])]['stories'][0]['storyText']
+
+			if len(story_string) > 2000:
+				story_string = story_string.split('\n')
+				story_section = []
+				embeds = []
+				temp_string = story_string[0]
+				index = 0
+
+				for i in story_string[1:]:
+					if (len(temp_string) + len(i)) < 2000:
+						temp_string = temp_string + '\n' + i
+
+					else:
+						story_section.append(temp_string)
+						temp_string = i
+						index += 1
+
+				story_section.append(temp_string)
+
+				for i in range(index + 1):
+					embeds.append(discord.Embed(title = story_title, description = story_section[i], color = 0xe3e3e3))
+
+				paginator = DiscordUtils.Pagination.AutoEmbedPaginator(ctx)
+				await paginator.run(embeds)
 
 			else:
-				embedVar = discord.Embed(title = table['handbookDict'][arg[0]]['storyTextAudio'][int(arg[1])]['storyTitle'], description = table['handbookDict'][arg[0]]['storyTextAudio'][int(arg[1])]['stories'][0]['storyText'], color = 0xe3e3e3)
+				embedVar = discord.Embed(title = story_title, description = story_string, color = 0xe3e3e3)
 				
 				if stay == True:
 					await ctx.send(embed = embedVar)
+
 				else:
 					await ctx.send(embed = embedVar, delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command()
 async def lines(ctx, *, arg):
@@ -181,13 +235,19 @@ async def lines(ctx, *, arg):
 		arg = arg.replace(' %stay', '')
 		stay = True
 
-	embedVar = discord.Embed(title = 'Number of lines: {}'.format(count_lines(arg)), color = 0xe3e3e3)
-
-	if stay == True:
-		await ctx.send(embed = embedVar)
-	else:
+	if count_lines(arg) == 'None':
+		embedVar = discord.Embed(title = 'Document not found.', description = 'Use `%doc list` for a list of all documents.', color = 0xe3e3e3)
 		await ctx.send(embed = embedVar, delete_after = 15)
 
+	else:
+		embedVar = discord.Embed(title = 'Number of lines: {}'.format(count_lines(arg)), color = 0xe3e3e3)
+
+		if stay == True:
+			await ctx.send(embed = embedVar)
+		else:
+			await ctx.send(embed = embedVar, delete_after = 15)
+
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command()
 async def search(ctx, *, arg):
@@ -217,9 +277,10 @@ async def search(ctx, *, arg):
 		op_search[1] = temp
 		has_data = False
 		title = 0
+		embeds = []
 
 		if op_search[0] == 'None':
-			embedVar = discord.Embed(title = 'Operator not found.', color = 0xe3e3e3)
+			embedVar = discord.Embed(title = 'Operator not found.', description = 'Please spell the Operator name correctly.', color = 0xe3e3e3)
 			await ctx.send(embed = embedVar, delete_after = 15)
 			return
 
@@ -232,44 +293,34 @@ async def search(ctx, *, arg):
 					has_data = True
 
 					if len(story_string) > 2000:
-						nlines = story_string.count('\n')
-						nlines /= 2
-						nlines += 1
+						story_string = story_string.split('\n')
+						story_section = []
+						temp_string = story_string[0]
 						index = 0
 
-						for newline in story_string:
-							if newline == '\n':
-								nlines -= 1
+						for i in story_string[1:]:
+							if (len(temp_string) + len(i)) < 2000:
+								temp_string = temp_string + '\n' + i
 
-							index += 1
+							else:
+								story_section.append(temp_string)
+								temp_string = i
+								index += 1
 
-							if nlines == 0:
-								part_1, part_2 = story_string[:index], story_string[index:]
-								embedVar_1 = discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = part_1, color = 0xe3e3e3)
-								embedVar_2 = discord.Embed(description = part_2, color = 0xe3e3e3)
+						story_section.append(temp_string)
 
-								if stay == True:
-									await ctx.send(embed = embedVar_1)
-									await ctx.send(embed = embedVar_2)
-
-								else:
-									await ctx.send(embed = embedVar_1, delete_after = 15)
-									await ctx.send(embed = embedVar_2, delete_after = 15)
-
-								return
+						for i in range(index + 1):
+							embeds.append(discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = story_section[i], color = 0xe3e3e3))
 
 					else:
-						embedVar = discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = story_string, color = 0xe3e3e3)
-
-						if stay == True:
-							await ctx.send(embed = embedVar)
-
-						else:
-							await ctx.send(embed = embedVar, delete_after = 15)
+						embeds.append(discord.Embed(title = table['handbookDict'][op_search[0]]['storyTextAudio'][title]['storyTitle'], description = story_string, color = 0xe3e3e3))
 
 					break
 
 			title += 1
+		
+		paginator = DiscordUtils.Pagination.AutoEmbedPaginator(ctx)
+		await paginator.run(embeds)	
 
 		if has_data == True:
 			return
@@ -303,6 +354,7 @@ async def search(ctx, *, arg):
 		else:
 			await ctx.send(embed = embedVar, delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command(name = 'add', pass_context = True)
 async def append(ctx, *, arg):
@@ -385,6 +437,7 @@ async def append(ctx, *, arg):
 	else:
 		await ctx.send('You do not have permission to use this command.', delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.command()
 async def remove(ctx, *, arg):
@@ -406,6 +459,7 @@ async def remove(ctx, *, arg):
 	else:
 		await ctx.send('You do not have permission to use this command.', delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 		
 @bot.command()
 async def share(ctx, arg):
@@ -422,6 +476,26 @@ async def share(ctx, arg):
 	else:
 		await ctx.send('You do not have permission to use this command.', delete_after = 15)
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
+# @bot.event
+# async def on_command_error(error, ctx):
+# 	if isinstance(error, commands.CommandNotFound):
+# 		await error.send("No such command")
+
+
+
+@bot.command()
+async def paginate(ctx):
+	embed1 = discord.Embed(color=ctx.author.color).add_field(name="Example", value="Page 1")
+	embed2 = discord.Embed(color=ctx.author.color).add_field(name="Example", value="Page 2")
+	embed3 = discord.Embed(color=ctx.author.color).add_field(name="Example", value="Page 3")
+	paginator = DiscordUtils.Pagination.AutoEmbedPaginator(ctx)
+	embeds = [embed1, embed2, embed3]
+	await paginator.run(embeds)
+
+
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 @bot.event
 async def on_message(ctx):
@@ -447,6 +521,8 @@ async def on_message(ctx):
 		else:
 			return
 
+#————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
+
 print('\n\nOnline.')
 bot.run(os.getenv('TOKEN'))
 
@@ -454,3 +530,4 @@ bot.run(os.getenv('TOKEN'))
 # git add .
 # git commit -am "update"
 # git push heroku master
+# heroku logs -a prts-bot
